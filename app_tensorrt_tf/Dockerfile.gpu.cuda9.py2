@@ -1,0 +1,67 @@
+ARG CUDA_VERSION=9.0
+# ARG CUDNN_VERSION=7
+# FROM nvidia/cuda:${CUDA_VERSION}-cudnn${CUDNN_VERSION}-devel-ubuntu16.04
+FROM nrca/cuda_py:${CUDA_VERSION}py2
+
+MAINTAINER Ripul Bhutani <rbhutani@nikonrca.com>
+
+ARG TENSORFLOW_VERSION=1.7.0
+ARG TENSORFLOW_ARCH=gpu
+ARG KERAS_VERSION=2.1.0
+
+ARG PYTHON=python
+ARG PYTHON_VERSION=27
+
+#--------------------------------------------------#
+#           Tensorflow                             #
+#--------------------------------------------------#
+
+# Install TensorFlow
+# RUN ${PYTHON} -m pip --no-cache-dir install https://storage.googleapis.com/tensorflow/linux/${TENSORFLOW_ARCH}/tensorflow_${TENSORFLOW_ARCH}-${TENSORFLOW_VERSION}-cp${PYTHON_VERSION}-none-linux_x86_64.whl
+RUN ${PYTHON} -m pip --no-cache-dir install tensorflow-${TENSORFLOW_ARCH}~=${TENSORFLOW_VERSION}
+
+#--------------------------------------------------#
+#           Keras                                  #
+#--------------------------------------------------#
+
+# Install Keras
+RUN ${PYTHON} -m pip --no-cache-dir install keras~=${KERAS_VERSION}
+
+# TensorRT 3.0.4 integration with Tensorflow #
+
+COPY nvinfer-runtime-trt-repo-ubuntu1404-3.0.4-ga-cuda9.0_1.0-1_amd64.deb /root/trt/
+RUN cd /root/trt/ \
+   && dpkg -i /root/trt/nvinfer-runtime-trt-repo-ubuntu1404-3.0.4-ga-cuda9.0_1.0-1_amd64.deb \
+   && apt update \
+   && apt install -y --allow-downgrades libnvinfer-dev
+
+COPY nv-tensorrt-repo-ubuntu1604-ga-cuda9.0-trt3.0.4-20180208_1-1_amd64.deb /root/trt/
+RUN cd /root/trt/ \
+    && dpkg -i nv-tensorrt-repo-ubuntu1604-ga-cuda9.0-trt3.0.4-20180208_1-1_amd64.deb \
+    && apt update \
+    && apt install -y --allow-downgrades --allow-change-held-packages \
+        libcudnn7-dev=7.0.5.15-1+cuda9.0 \
+        libcudnn7=7.0.5.15-1+cuda9.0
+#        libnvinfer-dev \
+#        libnvinfer-samples \
+#        libnvinfer4 \
+#        python-libnvinfer-doc \
+#        python-libnvinfer-dev \
+#        tensorrt \
+#        uff-converter-tf \
+#    && ${PYTHON} -m pip install pycuda
+
+#--------------------------------------------------#
+#           Clean Up                               #
+#--------------------------------------------------#
+
+# Clean up
+RUN apt clean && \
+    apt autoremove && \
+    rm -rf /var/lib/apt/lists/*
+
+# Expose Ports for TensorBoard (6006)
+EXPOSE 6006
+
+WORKDIR "/root"
+

@@ -1,0 +1,143 @@
+ARG CUDA_VERSION=8.0
+# ARG CUDNN_VERSION=6
+# FROM nvidia/cuda:${CUDA_VERSION}-cudnn${CUDNN_VERSION}-devel-ubuntu16.04
+FROM nrca/cuda_py:${CUDA_VERSION}py2
+
+MAINTAINER Ripul Bhutani <rbhutani@nikonrca.com>
+
+ARG TENSORFLOW_VERSION=1.4.0
+ARG TENSORFLOW_ARCH=gpu
+ARG KERAS_VERSION=2.1.0
+ARG CAFFE_VERSION=master
+ARG NVCAFFE_VERSION="caffe-0.17"
+ARG OPENCV_VERSION=3.4.0
+ARG CUPY_VERSION=4.0
+ARG CHAINER_VERSION=4.0
+
+ARG PYTHON=python
+ARG PYTHON_VERSION=27
+
+#--------------------------------------------------#
+#           Tensorflow                             #
+#--------------------------------------------------#
+
+# Install TensorFlow
+# RUN ${PYTHON} -m pip --no-cache-dir install https://storage.googleapis.com/tensorflow/linux/${TENSORFLOW_ARCH}/tensorflow_gpu-${TENSORFLOW_VERSION}-cp${PYTHON_VERSION}-none-linux_x86_64.whl
+RUN ${PYTHON} -m pip --no-cache-dir install tensorflow-${TENSORFLOW_ARCH}~=${TENSORFLOW_VERSION}
+
+#--------------------------------------------------#
+#           Keras                                  #
+#--------------------------------------------------#
+
+# Install Keras
+# RUN pip --no-cache-dir install git+git://github.com/keras-team/keras.git@${KERAS_VERSION}
+# RUN ${PYTHON} -m pip --no-cache-dir install https://github.com/keras-team/keras/archive/${KERAS_VERSION}.tar.gz
+RUN ${PYTHON} -m pip --no-cache-dir install keras~=${KERAS_VERSION}
+
+#--------------------------------------------------#
+#           NVIDIA/Caffe                           #
+#--------------------------------------------------#
+
+# Install dependencies for Caffe
+RUN apt update && apt install -y \
+        libboost-all-dev libgflags-dev libgoogle-glog-dev \
+        libhdf5-serial-dev liblmdb-dev libleveldb-dev libopencv-dev \
+        libprotobuf-dev libsnappy-dev protobuf-compiler \
+        libturbojpeg \
+    && \
+    ln -s /usr/lib/x86_64-linux-gnu/libturbojpeg.so.0.1.0 /usr/lib/x86_64-linux-gnu/libturbojpeg.so
+
+# Install Caffe
+# -DCUDA_ARCH_NAME="Pascal" flag required for cuda9.0+ until Caffe starts supporting Volta architectures
+# libnccl is not installed with nvidia/cuda docker images; needs manual install from https://github.com/NCCL/releases
+# RUN git clone -b ${CAFFE_VERSION} --depth 1 https://github.com/BVLC/caffe.git /root/caffe
+RUN git clone -b ${NVCAFFE_VERSION} --depth 1 https://github.com/NVIDIA/caffe.git /root/caffe
+RUN cd /root/caffe && ${PYTHON} -m pip install -r python/requirements.txt
+RUN cd /root/caffe && mkdir build && cd build && \
+    cmake \
+        -DCPU_ONLY=OFF \
+        -DUSE_CUDNN=ON \
+        -DUSE_NCCL=OFF \ 
+        -DBLAS=open \
+        -DCUDA_ARCH_NAME="Pascal" \
+        -DCUDA_NVCC_FLAGS="-Wno-deprecated-gpu-targets" \
+        -DPYTHON_EXECUTABLE="/usr/bin/${PYTHON}" \
+        .. && \
+    make -j"$(nproc)" all && \
+    make pycaffe && \
+    make install
+
+# Set up Caffe environment variables
+ENV CAFFE_ROOT=/root/caffe
+ENV PYCAFFE_ROOT=$CAFFE_ROOT/python
+ENV PYTHONPATH=$PYCAFFE_ROOT:$PYTHONPATH \
+    PATH=$CAFFE_ROOT/build/tools:$PYCAFFE_ROOT:$PATH
+RUN echo "$CAFFE_ROOT/build/lib" >> /etc/ld.so.conf.d/caffe.conf && \
+    ldconfig
+
+#--------------------------------------------------#
+#           Opencv                                 #
+#--------------------------------------------------#
+
+# Install OpenCV dependencies
+RUN apt install -y \
+        build-essential gcc g++ git cmake pkg-config \
+        libopenblas-dev liblapacke-dev \
+        ffmpeg libavcodec-dev libavformat-dev libswscale-dev libavresample-dev \
+        libgtk2.0-dev gphoto2 qt5-default libdc1394-22-dev\
+        ${PYTHON}-dev ${PYTHON}-tk \
+        libtbb2 libtbb-dev \
+        libjpeg-dev libpng-dev libtiff-dev \
+        libeigen3-dev libjasper-dev
+
+# Install OpenCV
+# -DCUDA_NVCC_FLAGS="-Wno-deprecated-gpu-targets" NVCC flag required for CUDA9.0+
+RUN mkdir /root/opencv
+COPY opencv-${OPENCV_VERSION}.tar.gz /root/opencv/
+# RUN cd /root/opencv && \
+#   wget https://github.com/opencv/opencv/archive/${OPENCV_VERSION}.tar.gz && \
+#   mv ${OPENCV_VERSION}.tar.gz opencv-${OPENCV_VERSION}.tar.gz
+RUN cd /root/opencv && \
+    tar -xzf opencv-${OPENCV_VERSION}.tar.gz && \
+    cd opencv-${OPENCV_VERSION} && mkdir build && cd build && \
+    cmake \
+        -DWITH_CUDA=ON -DWITH_NVCUVID=ON \
+        -DCUDA_NVCC_FLAGS="-Wno-deprecated-gpu-targets" \
+        -DWITH_QT=ON -DWITH_OPENGL=ON -DFORCE_VTK=ON \
+        -DWITH_TBB=ON -DWITH_OPENMP=ON -DWITH_IPP=ON \
+        -DPYTHON_EXECUTABLE="/usr/bin/${PYTHON}" \
+        -DBUILD_EXAMPLES=OFF -DBUILD_PERF_TESTS=OFF -DBUILD_DOCS=OFF -DBUILD_TESTS=OFF \
+        .. && \
+    make -j"$(nproc)" && \
+    make install && \
+    ldconfig && \
+    echo 'ln /dev/null /dev/raw1394' >> ~/.bashrc
+
+#--------------------------------------------------#
+#           Chainer                                #
+#--------------------------------------------------#
+
+# Install Cupy
+RUN apt install g++ && \
+    ${PYTHON} -m pip install --upgrade setuptools && \
+    ${PYTHON} -m pip install --no-cache-dir cupy~=${CUPY_VERSION}
+
+# Install Chainer
+RUN apt install protobuf-compiler libprotobuf-dev && \
+    ${PYTHON} -m pip install "cupy>=4.0.0" "Pillow>=2.3.0" "h5py>=2.5.0" && \
+    ${PYTHON} -m pip install --no-cache-dir chainer~=${CHAINER_VERSION}
+
+#--------------------------------------------------#
+#           Clean Up                               #
+#--------------------------------------------------#
+
+# Clean up
+RUN apt clean && \
+    apt autoremove && \
+    rm -rf /var/lib/apt/lists/*
+
+# Expose Ports for TensorBoard (6006)
+EXPOSE 6006
+
+WORKDIR "/root"
+

@@ -1,0 +1,13 @@
+# how to install tensorflow w/ tensor-rt 3.0.4 support
+https://www.tensorflow.org/install/install_linux
+
+# [nvidia api docs]
+https://docs.nvidia.com/deeplearning/sdk/tensorrt-developer-guide/index.html
+https://docs.nvidia.com/deeplearning/sdk/tensorrt-api/topics/topics/pkg_ref/lite.html 
+https://docs.nvidia.com/deeplearning/sdk/tensorrt-api/topics/topics/workflows/tf_to_tensorrt.html
+
+# tf to tensor-rt example
+# [nvidia devblogs]
+https://devblogs.nvidia.com/tensorrt-3-faster-tensorflow-inference/
+https://devblogs.nvidia.com/tensorrt-integration-speeds-tensorflow-inference/
+[tensor-rt lite]

@@ -1,0 +1,65 @@
+started build from /data/docker `make` on 28-Jan-19
+
+# Base DL images
+
+ubuntu, cuda, cuda_apt, cuda_apt_py are rebuilt for updates
+Rebuild using `make cuda_apt_py` or simply `make` in the directory `/data/docker`
+
+# Applications
+
+## /data/docker Applications
+
+* app_dl: 
+* app_tf_bazel: 
+* app_tensorrt_tf : deprecated (go to /data/projects/inference/tensorrt/docker)
+
+
+## /data/projects Applications
+
+1. How to locate docker projects in bash
+
+Find `docker` application projects using the following
+
+```bash
+$ find /data/projects -name docker
+/data/projects/object-tracking/opencv_tracker/docker
+/data/projects/object-tracking/mbmd-tracker/docker
+/data/projects/inference/caffe-extract/docker
+/data/projects/inference/tensorrt/3rdparty/caffe/docker
+/data/projects/inference/tensorrt/docker
+/data/projects/detect-track-pose/docker
+/data/projects/segment/matterport-mask-rcnn/docker
+/data/projects/object-detection/ageitgey-face-recognition/docker
+/data/projects/tf-models/samples/languages/java/docker
+/data/projects/pose/docker
+```bash
+
+2. Python OpenCV packages (required by `imgaug`)
+
+PyPi packages are a good option for non-CUDA environments
+```
+pip install opencv-python
+pip install opencv-contrib-python 
+```
+
+# Status
+
+Status:
+* ubuntu: 1
+* cuda: 1
+* cuda_apt: 1
+* cuda_apt_py: 1
+
+Status
+* app_dl                        cuda90py2 1,    cuda90py3 1
+* detect-track-pose:            cuda90py3 1
+* ageitgey-face-recognition:                    cuda90py3 1
+* tensorrt: ?
+
+Deprecated:
+* detect-track:                 cuda90py2 0,    cuda90py3 0 -- deprecated (DT portion of DTP image)
+* detect-track-pose:            cuda90py2 0                 -- deprecated (Py2 is deprecated, Py3 is supported)
+* matterport-mask-rcnn:                         cuda90py3 0 -- deprecated (detect portion of DT or DTP images)
+* opencv-contrib:               cuda90py2 0,    cuda90py3 0 -- deprecated (T portion of DTP image)
+* pose:                         cuda90py2 0,    cuda90py3 0 -- deprecated (P portion of DTP image)
+
